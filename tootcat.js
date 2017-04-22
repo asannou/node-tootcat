@@ -1,47 +1,40 @@
 #!/usr/bin/env node
 
-module.exports = (host, access_token, stream = "public") => {
-
-    const htmlToText = require("html-to-text");
-    const WebSocket = require("ws");
-
-    const formatToot = toot => {
-        const content = htmlToText
-            .fromString(toot.content, { wordwrap: false })
-            .replace(/\n/g, "\r\n");
-        return [
-            "\033[100m",
-            "\r\n" + toot.created_at + " " + toot.account.url,
-            "\033[0m",
-            "\r\n" + content
-        ].join("");
-    };
-
-    const output = new require("stream").PassThrough();
-
-    const ws = new WebSocket(
+const createStream = (host, access_token, stream = "public") => {
+    const ws = new (require("ws"))(
         "ws://" + host + "/api/v1/streaming/" +
             "?access_token=" + access_token +
             "&stream=" + stream
     );
-
-    ws.on("open", () => console.error("s:open"));
-    ws.on("error", err => console.error(err));
-
-    ws.on("message", (data, flags) => {
-        try {
-            const json = JSON.parse(data);
-            if (json.event === "update") {
-                const toot = JSON.parse(json.payload);
-                output.write(formatToot(toot));
-            }
-        } catch (err) {
-            console.error(err);
+    const output = new require("stream").Transform({
+        objectMode: true,
+        transform: function(payload, encoding, callback) {
+            this.push(JSON.parse(payload));
+            callback();
         }
     });
-
+    ws.on("open", () => console.error("s:open"));
+    ws.on("error", err => console.error(err));
+    ws.on("message", (data, flags) => {
+        const json = JSON.parse(data);
+        if (json.event === "update") {
+            output.write(json.payload);
+        }
+    });
     return output;
+};
 
+const formatToot = toot => {
+    const htmlToText = require("html-to-text");
+    const content = htmlToText
+        .fromString(toot.content, { wordwrap: false })
+        .replace(/\n/g, "\r\n");
+    return [
+        "\033[100m",
+        "\r\n" + toot.created_at + " " + toot.account.url,
+        "\033[0m",
+        "\r\n" + content
+    ].join("");
 };
 
 const createServer = (stream, port) => {
@@ -64,14 +57,29 @@ if (require.main === module) {
         alias: {
             h: "host",
             p: "port",
-            s: "stream"
+            s: "stream",
+            a: "authority"
         }
     });
-    const stream = module.exports(argv.host, access_token, argv.stream);
+    const transform = new require("stream").Transform({
+        objectMode: true,
+        transform: function(toot, encoding, callback) {
+            const authority = argv.authority;
+            if (authority && !toot.uri.startsWith("tag:" + authority + ",")) {
+                this.push("");
+            } else {
+                this.push(formatToot(toot));
+            }
+            callback();
+        }
+    });
+    const stream = createStream(argv.host, access_token, argv.stream).pipe(transform);
     if (argv.port) {
         createServer(stream, argv.port);
     } else {
         stream.pipe(process.stdout);
     }
 }
+
+module.exports = createStream;
 
