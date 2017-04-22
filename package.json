@@ -23,6 +23,7 @@
   "homepage": "https://github.com/asannou/node-tootcat#readme",
   "dependencies": {
     "html-to-text": "^3.2.0",
+    "minimist": "^1.2.0",
     "ws": "^2.3.1"
   }
 }

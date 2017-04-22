@@ -1,11 +1,9 @@
 #!/usr/bin/env node
 
-module.exports = (host, access_token) => {
+module.exports = (host, access_token, stream = "public") => {
 
     const htmlToText = require("html-to-text");
     const WebSocket = require("ws");
-
-    const stream = require("stream");
 
     const formatToot = toot => {
         const content = htmlToText
@@ -19,12 +17,12 @@ module.exports = (host, access_token) => {
         ].join("");
     };
 
-    const output = new stream.PassThrough();
+    const output = new require("stream").PassThrough();
 
     const ws = new WebSocket(
         "ws://" + host + "/api/v1/streaming/" +
             "?access_token=" + access_token +
-            "&stream=public"
+            "&stream=" + stream
     );
 
     ws.on("open", () => console.error("s:open"));
@@ -61,11 +59,17 @@ const createServer = (stream, port) => {
 
 if (require.main === module) {
     const access_token = process.env.ACCESS_TOKEN;
-    const host = process.argv[2];
-    const port = process.argv[3];
-    const stream = module.exports(host, access_token);
-    if (port) {
-        createServer(stream, port);
+    const parseArgs = require('minimist');
+    const argv = parseArgs(process.argv.slice(2), {
+        alias: {
+            h: "host",
+            p: "port",
+            s: "stream"
+        }
+    });
+    const stream = module.exports(argv.host, access_token, argv.stream);
+    if (argv.port) {
+        createServer(stream, argv.port);
     } else {
         stream.pipe(process.stdout);
     }
