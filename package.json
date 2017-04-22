@@ -1,0 +1,28 @@
+{
+  "name": "tootcat",
+  "version": "1.0.0",
+  "description": "Mastodon Federated Timeline Stream",
+  "main": "tootcat.js",
+  "scripts": {
+    "start": "node tootcat.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/asannou/node-tootcat.git"
+  },
+  "keywords": [
+    "mastodon",
+    "streaming"
+  ],
+  "author": "asannou",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/asannou/node-tootcat/issues"
+  },
+  "homepage": "https://github.com/asannou/node-tootcat#readme",
+  "dependencies": {
+    "html-to-text": "^3.2.0",
+    "ws": "^2.3.1"
+  }
+}
