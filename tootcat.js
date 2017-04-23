@@ -55,12 +55,12 @@ if (require.main === module) {
     const parseArgs = require('minimist');
     const argv = parseArgs(process.argv.slice(2), {
         alias: {
-            h: "host",
-            p: "port",
+            l: "listen",
             s: "stream",
             a: "authority"
         }
     });
+    const host = argv._;
     const transform = new require("stream").Transform({
         objectMode: true,
         transform: function(toot, encoding, callback) {
@@ -73,9 +73,9 @@ if (require.main === module) {
             callback();
         }
     });
-    const stream = createStream(argv.host, access_token, argv.stream).pipe(transform);
-    if (argv.port) {
-        createServer(stream, argv.port);
+    const stream = createStream(host, access_token, argv.stream).pipe(transform);
+    if (argv.listen) {
+        createServer(stream, argv.listen);
     } else {
         stream.pipe(process.stdout);
     }
