@@ -59,9 +59,22 @@ const createServer = (stream, port) => {
     const net = require("net");
     const server = net.createServer(socket => {
         console.error("c:connect " + socket.remoteAddress);
-        stream.resume();
-        stream.pipe(socket);
-        socket.on("close", () => console.error("c:close " + socket.remoteAddress));
+        const nopause = new require("stream").Writable({
+            highWaterMark: 0,
+            write: function(chunk, encoding, callback) {
+                if (!socket.write(chunk)) {
+                    console.error("buffer full");
+                    socket.end();
+                    socket.destroy();
+                }
+                callback();
+            }
+        });
+        stream.pipe(nopause);
+        socket.on("close", () => {
+            console.error("c:close " + socket.remoteAddress);
+            stream.unpipe(nopause);
+        });
         socket.on("error", err => console.error(err));
     });
     stream.resume();
