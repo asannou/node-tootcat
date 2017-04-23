@@ -24,17 +24,36 @@ const createStream = (host, access_token, stream = "public") => {
     return output;
 };
 
-const formatToot = toot => {
-    const htmlToText = require("html-to-text");
-    const content = htmlToText
-        .fromString(toot.content, { wordwrap: false })
-        .replace(/\n/g, "\r\n");
-    return [
-        "\033[100m",
-        "\r\n" + toot.created_at + " " + toot.account.url,
-        "\033[0m",
-        "\r\n" + content
-    ].join("");
+const filter = authority => new require("stream").Transform({
+    objectMode: true,
+    transform: function(toot, encoding, callback) {
+        if (toot.uri.startsWith("tag:" + authority + ",")) {
+            this.push(toot);
+        }
+        callback();
+    }
+});
+
+const transform = () => {
+    const format = toot => {
+        const htmlToText = require("html-to-text");
+        const content = htmlToText
+            .fromString(toot.content, { wordwrap: false })
+            .replace(/\n/g, "\r\n");
+        return [
+            "\033[100m",
+            "\r\n" + toot.created_at + " " + toot.account.url,
+            "\033[0m",
+            "\r\n" + content
+        ].join("");
+    };
+    return new require("stream").Transform({
+        objectMode: true,
+        transform: function(toot, encoding, callback) {
+            this.push(format(toot));
+            callback();
+        }
+    });
 };
 
 const createServer = (stream, port) => {
@@ -61,19 +80,9 @@ if (require.main === module) {
         }
     });
     const host = argv._;
-    const transform = new require("stream").Transform({
-        objectMode: true,
-        transform: function(toot, encoding, callback) {
-            const authority = argv.authority;
-            if (authority && !toot.uri.startsWith("tag:" + authority + ",")) {
-                this.push("");
-            } else {
-                this.push(formatToot(toot));
-            }
-            callback();
-        }
-    });
-    const stream = createStream(host, access_token, argv.stream).pipe(transform);
+    var stream = createStream(host, access_token, argv.stream);
+    stream = argv.authority ? stream.pipe(filter(argv.authority)) : stream;
+    stream = stream.pipe(transform());
     if (argv.listen) {
         createServer(stream, argv.listen);
     } else {
