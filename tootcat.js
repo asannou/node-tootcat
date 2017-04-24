@@ -55,30 +55,34 @@ const format = () => transform(toot => {
 
 const stringify = () => transform(JSON.stringify);
 
+const PassThrough = require("stream").PassThrough;
+
+require("util").inherits(SafetyValve, PassThrough);
+
+function SafetyValve() {
+    PassThrough.call(this);
+};
+
+SafetyValve.prototype.pause = function() {
+    this.unpipe().resume();
+    console.error("unpipe");
+};
+
 const createServer = (stream, port) => {
     const net = require("net");
     const server = net.createServer(socket => {
         console.error("c:connect " + socket.remoteAddress);
-        const nopause = new require("stream").Writable({
-            highWaterMark: 0,
-            write: function(chunk, encoding, callback) {
-                if (!socket.write(chunk)) {
-                    console.error("buffer full");
-                    socket.end();
-                    socket.destroy();
-                }
-                callback();
-            }
-        });
-        stream.pipe(nopause);
+        const valve = new SafetyValve();
+        stream.pipe(valve).pipe(socket);
         socket.on("close", () => {
             console.error("c:close " + socket.remoteAddress);
-            stream.unpipe(nopause);
+            stream.unpipe(valve).resume();
         });
         socket.on("error", err => console.error(err));
     });
     stream.resume();
     server.listen(port);
+    console.error("s:listen " + port);
 };
 
 if (require.main === module) {
