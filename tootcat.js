@@ -18,21 +18,31 @@ const filter = test => new require("stream").Transform({
     }
 });
 
-const createStream = (host, access_token, stream = "public") => {
+const createWebSocket = (host, access_token, stream, output) => {
     const ws = new (require("ws"))(
         "ws://" + host + "/api/v1/streaming/" +
             "?access_token=" + access_token +
             "&stream=" + stream
     );
-    const output = transform(JSON.parse);
     ws.on("open", () => console.error("s:open"));
-    ws.on("error", err => console.error(err));
+    ws.on("close", (code, reason) => {
+        console.error("s:close " + code)
+        if (code === 1006) {
+            createWebSocket(host, access_token, stream, output);
+        }
+    });
+    ws.on("error", error => console.error(error));
     ws.on("message", (data, flags) => {
         const json = JSON.parse(data);
         if (json.event === "update") {
             output.write(json.payload);
         }
     });
+};
+
+const createStream = (host, access_token, stream = "public") => {
+    const output = transform(JSON.parse);
+    createWebSocket(host, access_token, stream, output);
     return output;
 };
 
