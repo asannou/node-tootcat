@@ -19,11 +19,13 @@ const filter = test => new require("stream").Transform({
 });
 
 const createWebSocket = (host, access_token, stream, output) => {
-    const ws = new (require("ws"))(
-        "ws://" + host + "/api/v1/streaming/" +
-            "?access_token=" + access_token +
-            "&stream=" + stream
-    );
+    const url = new (require("url").URL)("ws://host/api/v1/streaming/");
+    url.host = host;
+    url.search = require("querystring").stringify({
+        access_token: access_token,
+        stream: stream
+    });
+    const ws = new (require("ws"))(url.toString());
     ws.on("open", () => console.error("s:open"));
     ws.on("close", (code, reason) => {
         console.error("s:close " + code)
@@ -78,10 +80,13 @@ SafetyValve.prototype.pause = function() {
     console.error("unpipe");
 };
 
-const createServer = (stream, port) => {
+const createServer = (stream, port, connectionListener) => {
     const net = require("net");
     const server = net.createServer(socket => {
         console.error("c:connect " + socket.remoteAddress);
+        if (connectionListener) {
+            connectionListener(socket);
+        }
         const valve = new SafetyValve();
         stream.pipe(valve).pipe(socket);
         socket.on("close", () => {
@@ -97,7 +102,7 @@ const createServer = (stream, port) => {
 
 if (require.main === module) {
     const access_token = process.env.ACCESS_TOKEN;
-    const argv = require('minimist')(process.argv.slice(2), {
+    const argv = require("minimist")(process.argv.slice(2), {
         alias: {
             l: "listen",
             s: "stream",

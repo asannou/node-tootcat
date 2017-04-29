@@ -12,17 +12,31 @@ const filteredStream = authority => {
     return stream.pipe(tc.filter(toot => toot.uri.startsWith(prefix)));
 };
 
-const friends_nico = filteredStream("friends.nico");
-const mstdn_jp = filteredStream("mstdn.jp");
-const pawoo_net = filteredStream("pawoo.net");
+const truncateContent = () => tc.transform(toot => {
+    var content = toot.content.split("\r\n");
+    const length = content.length;
+    const lines = 10;
+    if (length > lines + 1) {
+        content = content.slice(0, lines);
+        content.push("\033[90m... " + (length - lines) + " more lines\033[0m");
+        toot.content = content.join("\r\n");
+    }
+    return toot;
+});
 
-const createServer = (stream, port) => {
-    const formated = stream.pipe(tc.contentToText()).pipe(tc.format());
-    tc.createServer(formated, port);
+const formatStream = stream =>
+    stream.pipe(tc.contentToText()).pipe(truncateContent()).pipe(tc.format());
+
+const server = (stream, title, port) => {
+    const connectionListener = socket => socket.write("\033]0;" + title + "\7");
+    tc.createServer(formatStream(stream), port, connectionListener);
 };
 
-createServer(stream, 7007);
-createServer(friends_nico, 7008);
-createServer(mstdn_jp, 7009);
-createServer(pawoo_net, 7010);
+const filteredServer = (authority, port) =>
+    server(filteredStream(authority), authority, port);
+
+server(stream, "federated", 7007);
+filteredServer("friends.nico", 7008);
+filteredServer("mstdn.jp", 7009);
+filteredServer("pawoo.net", 7010);
 
