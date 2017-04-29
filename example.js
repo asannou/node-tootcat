@@ -13,12 +13,12 @@ const filteredStream = authority => {
 };
 
 const truncateContent = () => tc.transform(toot => {
-    var content = toot.content.split("\r\n");
-    const length = content.length;
+    let content = toot.content.split("\r\n");
     const lines = 10;
-    if (length > lines + 1) {
+    const truncated = content.length - lines;
+    if (truncated > 1) {
         content = content.slice(0, lines);
-        content.push("\033[90m... " + (length - lines) + " more lines\033[0m");
+        content.push("\033[90m" + `... ${truncated} more lines` + "\033[0m");
         toot.content = content.join("\r\n");
     }
     return toot;

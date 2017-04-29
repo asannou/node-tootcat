@@ -28,7 +28,7 @@ const createWebSocket = (host, access_token, stream, output) => {
     const ws = new (require("ws"))(url.toString());
     ws.on("open", () => console.error("s:open"));
     ws.on("close", (code, reason) => {
-        console.error("s:close " + code)
+        console.error(`s:close ${code}`)
         if (code === 1006) {
             createWebSocket(host, access_token, stream, output);
         }
@@ -58,18 +58,16 @@ const contentToText = () => transform(toot => {
 
 const format = () => transform(toot => {
     return [
-        "\033[100m",
-        "\r\n" + toot.created_at + " " + toot.account.url,
-        "\033[0m",
-        "\r\n" + toot.content
+        "\033[100m\r\n",
+        `${toot.created_at} ${toot.account.url}`,
+        "\033[0m\r\n",
+        toot.content
     ].join("");
 });
 
 const stringify = () => transform(JSON.stringify);
 
-const PassThrough = require("stream").PassThrough;
-
-class SafetyValve extends PassThrough {
+class SafetyValve extends require("stream").PassThrough {
     constructor() {
         super();
     }
@@ -82,21 +80,21 @@ class SafetyValve extends PassThrough {
 const createServer = (stream, port, connectionListener) => {
     const net = require("net");
     const server = net.createServer(socket => {
-        console.error("c:connect " + socket.remoteAddress);
+        console.error(`c:connect ${socket.remoteAddress}`);
         if (connectionListener) {
             connectionListener(socket);
         }
         const valve = new SafetyValve();
         stream.pipe(valve).pipe(socket);
         socket.on("close", () => {
-            console.error("c:close " + socket.remoteAddress);
+            console.error(`c:close ${socket.remoteAddress}`);
             stream.unpipe(valve).resume();
         });
         socket.on("error", err => console.error(err));
     });
     stream.resume();
     server.listen(port);
-    console.error("s:listen " + port);
+    console.error(`s:listen ${port}`);
 };
 
 if (require.main === module) {
@@ -109,9 +107,9 @@ if (require.main === module) {
         }
     });
     const host = argv._;
-    var stream = createStream(host, access_token, argv.stream);
+    let stream = createStream(host, access_token, argv.stream);
     if (argv.authority) {
-        const test = toot => toot.uri.startsWith("tag:" + argv.authority + ",");
+        const test = toot => toot.uri.startsWith(`tag:${argv.authority},`);
         stream = stream.pipe(filter(test));
     }
     stream = stream.pipe(contentToText()).pipe(format());
