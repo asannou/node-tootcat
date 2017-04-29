@@ -69,16 +69,15 @@ const stringify = () => transform(JSON.stringify);
 
 const PassThrough = require("stream").PassThrough;
 
-require("util").inherits(SafetyValve, PassThrough);
-
-function SafetyValve() {
-    PassThrough.call(this);
-};
-
-SafetyValve.prototype.pause = function() {
-    this.unpipe().resume();
-    console.error("unpipe");
-};
+class SafetyValve extends PassThrough {
+    constructor() {
+        super();
+    }
+    pause() {
+        this.unpipe().resume();
+        console.error("unpipe");
+    }
+}
 
 const createServer = (stream, port, connectionListener) => {
     const net = require("net");
