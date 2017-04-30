@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+"use strict";
 
 const transform = transform => new require("stream").Transform({
     objectMode: true,
@@ -98,12 +99,12 @@ const promisify = func => (...args) =>
 
 const createStream = (host, username, password, stream = "public") => {
     const output = transform(JSON.parse);
-    const getWebSocket = async () => {
+    const keepWebSocket = async () => {
         const token = await promisify(getToken)(host, username, password);
         await promisify(createWebSocket)(host, token, stream, output);
-        getWebSocket();
+        keepWebSocket();
     };
-    getWebSocket();
+    keepWebSocket();
     return output;
 };
 
@@ -117,9 +118,9 @@ const contentToText = () => transform(toot => {
 
 const format = () => transform(toot => {
     return [
-        "\033[100m\r\n",
+        "\x1b[100m\r\n",
         `${toot.created_at} ${toot.account.url}`,
-        "\033[0m\r\n",
+        "\x1b[0m\r\n",
         toot.content
     ].join("");
 });
