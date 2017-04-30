@@ -18,11 +18,62 @@ const filter = test => new require("stream").Transform({
     }
 });
 
-const createWebSocket = (host, access_token, stream, output) => {
+const postJson = (hostname, path, json, callback) => {
+    const request = require("https").request({
+        hostname: hostname,
+        path: path,
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        }
+    }, (res) => {
+        res.on("data", chunk => callback(JSON.parse(chunk)));
+    });
+    request.write(JSON.stringify(json));
+    request.end();
+};
+
+const createApp = (host, callback) => {
+    const json = {
+        client_name: "tootcat",
+        redirect_uris: "urn:ietf:wg:oauth:2.0:oob",
+        scopes: "read"
+    };
+    postJson(host, "/api/v1/apps", json, callback);
+};
+
+const getApp = (host, callback) => {
+    const fs = require("fs");
+    const file = "app.json";
+    try {
+        const app = JSON.parse(fs.readFileSync(file));
+        callback(app);
+    } catch (e) {
+        createApp(host, (app) => {
+            fs.writeFileSync(file, JSON.stringify(app), { mode: 0o400 });
+            callback(app);
+        });
+    }
+};
+
+const getToken = (host, username, password, callback) => {
+    getApp(host, app => {
+        const req = {
+            client_id: app.client_id,
+            client_secret: app.client_secret,
+            grant_type: "password",
+            username: username,
+            password: password
+        };
+        postJson(host, "/oauth/token", req, res => callback(res.access_token));
+    });
+};
+
+const createWebSocket = (host, token, stream, output, callback) => {
     const url = new (require("url").URL)("ws://host/api/v1/streaming/");
     url.host = host;
     url.search = require("querystring").stringify({
-        access_token: access_token,
+        access_token: token,
         stream: stream
     });
     const ws = new (require("ws"))(url.toString());
@@ -30,7 +81,7 @@ const createWebSocket = (host, access_token, stream, output) => {
     ws.on("close", (code, reason) => {
         console.error(`s:close ${code}`)
         if (code === 1006) {
-            createWebSocket(host, access_token, stream, output);
+            callback();
         }
     });
     ws.on("error", error => console.error(error));
@@ -42,9 +93,17 @@ const createWebSocket = (host, access_token, stream, output) => {
     });
 };
 
-const createStream = (host, access_token, stream = "public") => {
+const promisify = func => (...args) =>
+    new Promise(resolve => func(...args, resolve));
+
+const createStream = (host, username, password, stream = "public") => {
     const output = transform(JSON.parse);
-    createWebSocket(host, access_token, stream, output);
+    const getWebSocket = async () => {
+        const token = await promisify(getToken)(host, username, password);
+        await promisify(createWebSocket)(host, token, stream, output);
+        getWebSocket();
+    };
+    getWebSocket();
     return output;
 };
 
@@ -98,7 +157,6 @@ const createServer = (stream, port, connectionListener) => {
 };
 
 if (require.main === module) {
-    const access_token = process.env.ACCESS_TOKEN;
     const argv = require("minimist")(process.argv.slice(2), {
         alias: {
             l: "listen",
@@ -106,8 +164,10 @@ if (require.main === module) {
             a: "authority"
         }
     });
-    const host = argv._;
-    let stream = createStream(host, access_token, argv.stream);
+    const host = argv._[0];
+    const username = process.env.TC_USERNAME;
+    const password = process.env.TC_PASSWORD;
+    let stream = createStream(host, username, password, argv.stream);
     if (argv.authority) {
         const test = toot => toot.uri.startsWith(`tag:${argv.authority},`);
         stream = stream.pipe(filter(test));

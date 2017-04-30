@@ -3,12 +3,13 @@
 const tc = require("./tootcat.js");
 
 const host = "friends.nico";
-const access_token = process.env.ACCESS_TOKEN;
+const username = process.env.TC_USERNAME;
+const password = process.env.TC_PASSWORD;
 
-const stream = tc.createStream(host, access_token);
+const stream = tc.createStream(host, username, password);
 
 const filteredStream = authority => {
-    const prefix = "tag:" + authority + ",";
+    const prefix = `tag:${authority},`;
     return stream.pipe(tc.filter(toot => toot.uri.startsWith(prefix)));
 };
 
