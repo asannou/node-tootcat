@@ -146,10 +146,6 @@ const createServer = (stream, port, connectionListener) => {
         }
         const valve = new SafetyValve();
         stream.pipe(valve).pipe(socket);
-        socket.on("unpipe", () => {
-            console.error(`c:unpipe ${socket.remoteAddress}`);
-            socket.destroy();
-        });
         socket.on("close", () => {
             console.error(`c:close ${socket.remoteAddress}`);
             stream.unpipe(valve).resume();
