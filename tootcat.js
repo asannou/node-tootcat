@@ -4,7 +4,12 @@
 const transform = transform => new require("stream").Transform({
     objectMode: true,
     transform: function(chunk, encoding, callback) {
-        this.push(transform(chunk));
+        if (typeof chunk === "object") {
+            const object = JSON.parse(JSON.stringify(chunk));
+            this.push(transform(object));
+        } else {
+            this.push(transform(chunk));
+        }
         callback();
     }
 });
@@ -140,7 +145,7 @@ class SafetyValve extends require("stream").PassThrough {
 const createServer = (stream, port, connectionListener) => {
     const net = require("net");
     const server = net.createServer(socket => {
-        console.error(`c:connect ${socket.remoteAddress}`);
+        console.error(`c:connect ${socket.localPort} ${socket.remoteAddress}`);
         if (connectionListener) {
             connectionListener(socket);
         }
